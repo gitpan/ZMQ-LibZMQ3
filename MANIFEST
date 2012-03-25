@@ -44,3 +44,6 @@ tools/detect_zmq.pl
 tools/genfiles.pl
 xs/perl_libzmq3.h
 xs/perl_libzmq3.xs
+xt/999_leak.t
+xt/999_pod-coverage.t
+xt/999_pod.t

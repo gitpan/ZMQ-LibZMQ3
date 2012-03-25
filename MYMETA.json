@@ -16,7 +16,8 @@
    "no_index" : {
       "directory" : [
          "inc",
-         "t"
+         "t",
+         "xt"
       ]
    },
    "prereqs" : {
@@ -41,9 +42,6 @@
          }
       },
       "runtime" : {
-         "recommends" : {
-            "JSON" : "2.00"
-         },
          "requires" : {
             "Task::Weaken" : "0",
             "XSLoader" : "0.02",

@@ -27,8 +27,7 @@ no_index:
   directory:
     - inc
     - t
-recommends:
-  JSON: 2.00
+    - xt
 requires:
   Task::Weaken: 0
   XSLoader: 0.02
