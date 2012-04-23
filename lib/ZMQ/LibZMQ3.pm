@@ -226,7 +226,7 @@ you cannot share sockets.
 
 =head1 FUNCTIONS
 
-ZMQ::LibZMQ3 attempts to stick to the libzmq interface as much as possible. Unless there is a structure is what the Perl binding expects, no function should throw an exception.
+ZMQ::LibZMQ3 attempts to stick to the libzmq interface as much as possible. Unless there is a structural problem (say, an underlying poitner that the Perl binding expects was missing), no function should throw an exception.
 
 Return values should resemble that of libzmq, except for when new data is allocated and returned to the user - That includes things like C<zmq_init()>, C<zmq_socket()>, C<zmq_msg_data()>, etc.
 
@@ -333,7 +333,7 @@ Returns -1 upon failure, and sets $!.
 
 Queues C<$message> to be sent via C<$sock>. Argument C<$flags> may be omitted.
 
-If C<$message> is a non-ref, creates a new ZMQ::LibZMQ2::Message object via C<zmq_msg_init_data()>, and uses that to pass to the underlying C layer..
+If C<$message> is a non-ref, creates a new ZMQ::LibZMQ3::Message object via C<zmq_msg_init_data()>, and uses that to pass to the underlying C layer..
 
 Returns the number of bytes sent on success (which should be exact C<$size>)
 
@@ -406,7 +406,7 @@ C<@pollitems> are list of hash references containing the following elements:
 
 =item fd or socket
 
-One of either C<fd> or C<socket> key must exist. C<fd> should contain a UNIX file descriptor. C<socket> should contain a C<ZMQ::LibZMQ2::Socket> socket object.
+One of either C<fd> or C<socket> key must exist. C<fd> should contain a UNIX file descriptor. C<socket> should contain a C<ZMQ::LibZMQ3::Socket> socket object.
 
 =item events
 
@@ -417,6 +417,27 @@ A bit mask containing C<ZMQ_POLLOUT>, C<ZMQ_POLLIN>, C<ZMQ_POLLERR> or combinati
 A subroutine reference, which will be called without arguments when the socket or descriptor is available.
 
 =back
+
+In scalar context, returns the return value of zmq_poll() in the C layer, and sets $!.
+
+    my $rv = zmq_poll( .... ); # do scalar(zmq_poll(...)) if you're nuerotic
+    if ( $rv == -1 ) {
+        warn "zmq_poll failed: $!";
+    }
+
+In list context, return a list containing as many booleans as there are 
+elements in C<@pollitems>.
+These booleans indicate whether the socket in question has fired the callback.
+
+    my @pollitems = (...);
+    my @fired     = zmq_poll( @pollitems ... );
+    for my $i ( 0 .. $#pollitems ) {
+        my $fired = $fired[$i];
+        if ( $fired ) {
+            my $item = $pollitems[$i];
+            ...
+        }
+    }
 
 =head2 zmq_version()
 
@@ -433,9 +454,9 @@ Creates a new "device". See C<zmq_device> for details. zmq_device() will only re
 
 This function does not work on some versions, as certain early versions of libzmq3.x do not implement it.
 
-=head1 FUNCTIONS PROVIDED BY ZMQ::LIBZMQ2
+=head1 FUNCTIONS PROVIDED BY ZMQ::LIBZMQ3
 
-These functions are provided by ZMQ::LibZMQ2 to make some operations easier in the Perl binding. They are not part of the official libzmq interface.
+These functions are provided by ZMQ::LibZMQ3 to make some operations easier in the Perl binding. They are not part of the official libzmq interface.
 
 =head2 $value = zmq_getsockopt_int( $sock, $option )
 
