@@ -4,7 +4,7 @@
       "Daisuke Maki C<< <daisuke@endeworks.jp> >>"
    ],
    "dynamic_config" : 0,
-   "generated_by" : "Module::Install version 1.04, CPAN::Meta::Converter version 2.120630",
+   "generated_by" : "Module::Install version 1.04, CPAN::Meta::Converter version 2.112150",
    "license" : [
       "perl_5"
    ],
@@ -27,9 +27,9 @@
             "Devel::PPPort" : "3.19",
             "ExtUtils::MakeMaker" : "6.36",
             "ExtUtils::ParseXS" : "2.21",
-            "Test::Fatal" : "0",
+            "Test::Fatal" : 0,
             "Test::More" : "0.98",
-            "Test::Requires" : "0",
+            "Test::Requires" : 0,
             "Test::TCP" : "1.08"
          }
       },
@@ -43,9 +43,9 @@
       },
       "runtime" : {
          "requires" : {
-            "Task::Weaken" : "0",
+            "Task::Weaken" : 0,
             "XSLoader" : "0.02",
-            "ZMQ::Constants" : "0"
+            "ZMQ::Constants" : 0
          }
       }
    },

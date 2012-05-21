@@ -1,6 +1,11 @@
 Changes
 =======
 
+1.00_04 - May 21 2012
+    - Silly cut n' paste error in stub XS generation and t/101_threads.t
+      Reported by Steffen Mueller
+    - Very minor doc tweaks
+
 1.00_03 - Apr 23 2012
     - Changed zmq_poll()'s return value. In list context, you can get the
       array of boolean values indicating if the particular socket got fired
