@@ -17,7 +17,7 @@ configure_requires:
   ExtUtils::ParseXS: 2.21
 distribution_type: module
 dynamic_config: 1
-generated_by: 'Module::Install version 1.04'
+generated_by: 'Module::Install version 1.06'
 license: perl
 meta-spec:
   url: http://module-build.sourceforge.net/META-spec-v1.4.html
@@ -34,4 +34,5 @@ requires:
   ZMQ::Constants: 0
 resources:
   license: http://dev.perl.org/licenses/
+  repository: https://github.com/lestrrat/p5-ZMQ
 version: 1.00

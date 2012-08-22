@@ -51,14 +51,14 @@ EOM
 # XXX As of Devel::CheckLib 0.93, it seems like LIBS = "-L/path/to/foo"
 # gets ignored (unlike what the docs say). So we manually strip and
 # re-arrange the paths here
+my @libs = grep { -d $_ } map { s/^-L//; $_ } split /\s+/, $ENV{ZMQ_LIBS};
 assertlibs
     lib => 'zmq',
     header => 'zmq.h',
     incpath => [ split /\s+/, $ENV{ZMQ_INCLUDES} ],
-    libpath => [ grep { -d $_ } map { s/^-L//; $_ } split /\s+/, $ENV{ZMQ_LIBS} ]
+    libpath => \@libs,
 ;
 
-auto_set_repository;
 requires 'Task::Weaken';
 requires 'ZMQ::Constants';
 test_requires 'Test::More', '0.98';
@@ -74,7 +74,11 @@ cc_libs $ENV{ZMQ_LIBS};
 cc_include_paths 'xs';
 cc_src_paths 'xs';
 cc_assert_lib 'zmq';
-cc_libs 'zmq', 'uuid'; # uuid for cygwin, but can't hurt
+if ($^O eq 'cygwin') {
+    cc_libs 'zmq', 'uuid'; # uuid for cygwin, but can't hurt
+} else {
+    cc_libs 'zmq';
+}
 if ($ENV{ZMQ_TRACE}) {
     cc_define qq|-DPERLZMQ_TRACE=$ENV{ZMQ_TRACE}|;
 }
@@ -82,5 +86,24 @@ if ($ENV{ZMQ_TRACE}) {
 author_tests 'xt';
 clean_files "xs/*.inc xs/typemap";
 
+repository "https://github.com/lestrrat/p5-ZMQ";
+
 do 'tools/genfiles.pl';
 WriteAll;
+
+if (-f "Makefile") {
+    my $version = `sw_vers -productVersion`;
+    chomp $version;
+    $version =~ s/\.\d+$//;
+
+    local @ARGV = qw(Makefile);
+    local $^I = '';
+    while (<>) {
+        if ($^O eq 'darwin') {
+            s/MACOSX_DEPLOYMENT_TARGET=(\d+\.\d+)/$1 < 10.5 ? "MACOSX_DEPLOYMENT_TARGET=$version" : "MACOSX_DEPLOYMENT_TARGET=$1"/e;
+        }
+        s/OTHERLDFLAGS =\s*$/OTHERLDFLAGS = -Wl,-rpath,@{[ join ",", @libs]}\n/;
+        print;
+    }
+}
+
