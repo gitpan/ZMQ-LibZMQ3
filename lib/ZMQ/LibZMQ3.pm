@@ -5,7 +5,7 @@ use XSLoader;
 use ZMQ::Constants ();
 
 BEGIN {
-    our $VERSION = '1.01';
+    our $VERSION = '1.02';
     XSLoader::load(__PACKAGE__, $VERSION);
 }
 
@@ -36,6 +36,7 @@ our @EXPORT = qw(
     zmq_poll
 
     zmq_device
+    zmq_proxy
 );
 
 sub zmq_sendmsg {
@@ -102,8 +103,10 @@ ZMQ::LibZMQ3 - A libzmq 3.x wrapper for Perl
     my $rv   = zmq_setsockopt( $socket, $option, $value );
     my $val  = zmq_getsockopt( $socket, $option );
     my $rv   = zmq_bind( $sock, $addr );
-    my $rv   = zmq_send( $sock, $msg, $flags );
-    my $msg  = zmq_recv( $sock, $flags );
+    my $rv   = zmq_send( $sock, $buffer, $length, $flags );
+    my $msg  = zmq_sendmsg( $sock, $msg, $flags );
+    my $rv   = zmq_recv( $sock, $buffer, $length, $flags );
+    my $msg  = zmq_recvmsg( $sock, $flags );
 
 =head1 INSTALLATION
 
@@ -139,10 +142,19 @@ If you want to compile with debugging on:
 =head1 DESCRIPTION
 
 The C<ZMQ::LibZMQ3> module is a wrapper of the 0MQ message passing library for Perl. 
-It's a thin wrapper around the C API. Please read L<http://zeromq.org> for
-more details on 0MQ.
 
-Note that this is a wrapper for libzmq 2.x. For 3.x, you need to check L<ZMQ::LibZMQ3>
+Before you start using this module, please make sure you have read and understood the zguide.
+
+    http://zguide.zeromq.org/page:all
+
+For specifics on each function, please refer to their documentation for the definitive explanation of each.
+
+    http://api.zeromq.org/
+
+This module is merely a thin wrapper around the C API: You need to understand
+how the C API works in order to properly use this module.
+
+Note that this is a wrapper for libzmq 3.x. For 2.x, you need to check L<ZMQ::LibZMQ2>
 
 =head1 BASIC USAGE
 
@@ -454,6 +466,15 @@ returns a 3-element list of the version numbers:
 =head2 zmq_device($type, $sock1, $sock2)
 
 Creates a new "device". See C<zmq_device> for details. zmq_device() will only return if/when the current context is closed. Therefore, the return value is always -1, and errno is always ETERM
+
+This function does not work on some versions, as certain early versions of libzmq3.x do not implement it.
+
+=head2 zmq_proxy($frontend_sock, $backend_sock, $capture_sock)
+
+WARNING: EXPERIMENTAL. Use at your own risk.
+
+Start a proxy in the current thread, which connects the frontend socket to a
+backend socket. The capture sock is optional, and is by default undef.
 
 This function does not work on some versions, as certain early versions of libzmq3.x do not implement it.
 
