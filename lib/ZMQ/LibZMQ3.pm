@@ -5,7 +5,7 @@ use XSLoader;
 use ZMQ::Constants ();
 
 BEGIN {
-    our $VERSION = '1.02';
+    our $VERSION = '1.03';
     XSLoader::load(__PACKAGE__, $VERSION);
 }
 
@@ -84,7 +84,8 @@ ZMQ::LibZMQ3 - A libzmq 3.x wrapper for Perl
 
 =head1 SYNOPSIS
 
-    use ZMQ::LibZMQ;
+    use ZMQ::LibZMQ3;
+    use ZMQ::Constants; # separate module
 
     my $ctxt = zmq_init($threads);
     my $rv   = zmq_term($ctxt);
@@ -158,6 +159,8 @@ Note that this is a wrapper for libzmq 3.x. For 2.x, you need to check L<ZMQ::Li
 
 =head1 BASIC USAGE
 
+Please make sure you already have ZMQ::Constants module. If you installed ZMQ::LibZMQ3 from CPAN via cpan/cpanm, it should have already been installed for you. All socket types and other flags are declared in this module.
+
 To start using ZMQ::LibZMQ3, you need to create a context object, then as many ZMQ::LibZMQ3::Socket obects as you need:
 
     my $ctxt = zmq_init;
@@ -177,17 +180,17 @@ When sending data, you can either pass a ZMQ::LibZMQ3::Message object or a Perl 
 
     # the following two send() calls are equivalent
     my $msg = zmq_msg_init_data( "a simple message" );
-    zmq_send( $socket, $msg );
+    zmq_sendmsg( $socket, $msg );
     
-    zmq_send( $socket, "a simple message" ); 
+    zmq_sendmsg( $socket, "a simple message" ); 
 
 In most cases using ZMQ::LibZMQ3::Message is redundunt, so you will most likely use the string version.
 
-To receive, simply call C<zmq_recv()> on the socket
+To receive, simply call C<zmq_recvmsg()> on the socket
 
-    my $msg = zmq_recv( $socket );
+    my $msg = zmq_recvmsg( $socket );
 
-The received message is an instance of ZMQ::LibZMQ3::Message object, and you can access the content held in the message via the C<data()> method:
+The received message is an instance of ZMQ::LibZMQ3::Message object, and you can access the content held in the message via the C<zmq_msg_data()> method:
 
     my $data = zmq_msg_data( $msg );
 
@@ -234,7 +237,9 @@ Create separate contexts for each process, and therefore you shouldn't
 be sharing the socket objects either.
 
 For multi-thread environemnts, you can share the same context object. However
-you cannot share sockets.
+you cannot share sockets. Note that while the Perl Socket objects survive
+between threads, their underlying C structures do not, and you will get an 
+error if you try to use them between sockets.
 
 =head1 FUNCTIONS
 
@@ -521,7 +526,7 @@ When you see the crash, get a backtrace:
 This is an early release. Proceed with caution, please report
 (or better yet: fix) bugs you encounter.
 
-This module has been tested againt B<zeromq 3.1.1>. Semantics of this
+This module has been tested againt B<zeromq 3.2.2>. Semantics of this
 module rely heavily on the underlying zeromq version. Make sure
 you know which version of zeromq you're working with.
 
@@ -530,6 +535,10 @@ you know which version of zeromq you're working with.
 L<http://zeromq.org>
 
 L<http://github.com/lestrrat/p5-ZMQ>
+
+L<ZMQ::Constants>
+
+L<ZMQ::LibZMQ2>
 
 =head1 AUTHOR
 
