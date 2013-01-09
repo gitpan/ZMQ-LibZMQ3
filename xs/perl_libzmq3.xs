@@ -1,6 +1,12 @@
 #include "perl_libzmq3.h"
 #include "xshelper.h"
 
+#define PerlLibzmq3_function_unavailable(name) \
+    { \
+        int major, minor, patch; \
+        zmq_version(&major, &minor, &patch); \
+        croak("%s is not available in this version of libzmq (%d.%d.%d)", name, major, minor, patch ); \
+    }
 #if (PERLZMQ_TRACE > 0)
 #define PerlLibzmq3_trace(...) \
     { \
@@ -215,8 +221,13 @@ PerlLibzmq3_Context_invalidate( PerlLibzmq3_Context *ctxt ) {
     }
 #endif
     if (close) {
+#ifdef HAS_ZMQ_CTX_DESTROY
+        PerlLibzmq3_trace( " + calling actual zmq_ctx_destroy()");
+        rv = zmq_ctx_destroy( ctxt->ctxt );
+#else
         PerlLibzmq3_trace( " + calling actual zmq_term()");
         rv = zmq_term( ctxt->ctxt );
+#endif
         if ( rv != 0 ) {
             SET_BANG;
         } else {
@@ -365,7 +376,9 @@ PROTOTYPES: DISABLED
 BOOT:
     {
         PerlLibzmq3_trace( "Booting ZMQ::LibZMQ3" );
+#include "constants-xs.inc"
     }
+
 
 int
 zmq_errno()
@@ -404,6 +417,7 @@ PerlLibzmq3_zmq_init( nthreads = 5 )
         SV *class_sv = sv_2mortal(newSVpvn( "ZMQ::LibZMQ3::Context", 20 ));
         void *cxt;
     CODE:
+#ifdef HAS_ZMQ_INIT
         PerlLibzmq3_trace( "START zmq_init" );
         cxt = zmq_init( nthreads );
         if (cxt == NULL) {
@@ -421,6 +435,44 @@ PerlLibzmq3_zmq_init( nthreads = 5 )
             PerlLibzmq3_trace( " + zmq context %p", RETVAL->ctxt );
         }
         PerlLibzmq3_trace( "END zmq_init");
+#else /* HAS_ZMQ_INIT */
+        PERL_UNUSED_VAR(cxt);
+        PERL_UNUSED_VAR(nthreads);
+        PerlLibzmq3_function_unavailable("zmq_init");
+#endif
+    OUTPUT:
+        RETVAL
+
+PerlLibzmq3_Context *
+PerlLibzmq3_zmq_ctx_new( nthreads = 5 )
+        int nthreads;
+    PREINIT:
+        SV *class_sv = sv_2mortal(newSVpvn( "ZMQ::LibZMQ3::Context", 20 ));
+        void *cxt;
+    CODE:
+#ifdef HAS_ZMQ_CTX_NEW
+        PerlLibzmq3_trace( "START zmq_ctx_new" );
+        cxt = zmq_init( nthreads );
+        if (cxt == NULL) {
+            SET_BANG;
+            RETVAL = NULL;
+        } else {
+            Newxz( RETVAL, 1, PerlLibzmq3_Context );
+            PerlLibzmq3_trace( " + created context wrapper %p", RETVAL );
+            RETVAL->pid    = getpid();
+            RETVAL->ctxt   = cxt;
+#ifdef USE_ITHREADS
+            PerlLibzmq3_trace( " + threads enabled, aTHX %p", aTHX );
+            RETVAL->interp = aTHX;
+#endif
+            PerlLibzmq3_trace( " + zmq context %p", RETVAL->ctxt );
+        }
+        PerlLibzmq3_trace( "END zmq_ctx_new");
+#else /* HAS_ZMQ_CTX_NEW */
+        PERL_UNUSED_VAR(cxt);
+        PERL_UNUSED_VAR(nthreads);
+        PerlLibzmq3_function_unavailable("zmq_ctx_new");
+#endif
     OUTPUT:
         RETVAL
 
@@ -428,6 +480,7 @@ int
 PerlLibzmq3_zmq_term( ctxt )
         PerlLibzmq3_Context *ctxt;
     CODE:
+#ifdef HAS_ZMQ_TERM
         RETVAL = PerlLibzmq3_Context_invalidate( ctxt );
 
         if (RETVAL == 0) {
@@ -443,6 +496,75 @@ PerlLibzmq3_zmq_term( ctxt )
                 }
             }
         }
+#else /* HAS_ZMQ_TERM */
+        PERL_UNUSED_VAR(ctxt);
+        PerlLibzmq3_function_unavailable("zmq_term");
+#endif
+    OUTPUT:
+        RETVAL
+
+int
+PerlLibzmq3_zmq_ctx_destroy( ctxt )
+        PerlLibzmq3_Context *ctxt;
+    CODE:
+#ifdef HAS_ZMQ_CTX_DESTROY
+        RETVAL = PerlLibzmq3_Context_invalidate( ctxt );
+
+        if (RETVAL == 0) {
+            /* Cancel the SV's mg attr so to not call zmq_ctx_destroy automatically */
+            MAGIC *mg =
+                PerlLibzmq3_Context_mg_find( aTHX_ SvRV(ST(0)), &PerlLibzmq3_Context_vtbl );
+            mg->mg_ptr = NULL;
+            /* mark the original SV's _closed flag as true */
+            {
+                SV *svr = SvRV(ST(0));
+                if (hv_stores( (HV *) svr, "_closed", &PL_sv_yes ) == NULL) {
+                    croak("PANIC: Failed to store closed flag on blessed reference");
+                }
+            }
+        }
+#else /* HAS_ZMQ_CTX_DESTROY */
+        PERL_UNUSED_VAR(ctxt);
+        PerlLibzmq3_function_unavailable("zmq_ctx_destroy");
+#endif
+    OUTPUT:
+        RETVAL
+
+int
+PerlLibzmq3_zmq_ctx_get(ctxt, option_name)
+        PerlLibzmq3_Context *ctxt;
+        int option_name;
+    CODE:
+#ifdef HAS_ZMQ_CTX_GET
+        RETVAL = zmq_ctx_get(ctxt->ctxt, option_name);
+        if (RETVAL == -1) {
+            SET_BANG;
+        }
+#else
+        PERL_UNUSED_VAR(ctxt);
+        PERL_UNUSED_VAR(option_name);
+        PerlLibzmq3_function_unavailable("zmq_ctx_get");
+#endif
+    OUTPUT:
+        RETVAL
+
+int
+PerlLibzmq3_zmq_ctx_set(ctxt, option_name, option_value)
+        PerlLibzmq3_Context *ctxt;
+        int option_name;
+        int option_value;
+    CODE:
+#ifdef HAS_ZMQ_CTX_SET
+        RETVAL = zmq_ctx_set(ctxt->ctxt, option_name, option_value);
+        if (RETVAL == -1) {
+            SET_BANG;
+        }
+#else
+        PERL_UNUSED_VAR(ctxt);
+        PERL_UNUSED_VAR(option_name);
+        PERL_UNUSED_VAR(option_value);
+        PerlLibzmq3_function_unavailable("zmq_ctx_set");
+#endif
     OUTPUT:
         RETVAL
 
@@ -600,7 +722,7 @@ PerlLibzmq3_zmq_socket (ctxt, type)
             RETVAL->assoc_ctxt = ST(0);
             RETVAL->socket = sock;
             RETVAL->pid = getpid();
-            SvREFCNT_inc(RETVAL->assoc_ctxt);
+            (void) SvREFCNT_inc(RETVAL->assoc_ctxt);
             PerlLibzmq3_trace( " + created socket %p", RETVAL );
         }
         PerlLibzmq3_trace( "END zmq_socket" );
@@ -664,6 +786,24 @@ PerlLibzmq3_zmq_bind(socket, addr)
         RETVAL
 
 int
+PerlLibzmq3_zmq_unbind(socket, addr)
+        PerlLibzmq3_Socket *socket;
+        const char *addr;
+    CODE:
+#ifdef HAS_ZMQ_UNBIND
+        RETVAL = zmq_unbind(socket, addr);
+        if (RETVAL == -1) {
+            SET_BANG;
+        }
+#else
+        PERL_UNUSED_VAR(socket);
+        PERL_UNUSED_VAR(addr);
+        PerlLibzmq3_function_unavailable("zmq_unbind");
+#endif
+    OUTPUT:
+        RETVAL
+
+int
 PerlLibzmq3_zmq_recv(socket, buf_sv, len, flags = 0)
         PerlLibzmq3_Socket *socket;
         SV *buf_sv;
@@ -687,6 +827,27 @@ PerlLibzmq3_zmq_recv(socket, buf_sv, len, flags = 0)
     OUTPUT:
         RETVAL
         
+int
+PerlLibzmq3_zmq_msg_recv(msg, socket, flags = 0)
+        PerlLibzmq3_Message *msg;
+        PerlLibzmq3_Socket *socket;
+        int flags;
+    CODE:
+#ifndef HAS_ZMQ_MSG_RECV
+        PerlLibzmq3_function_unavailable("zmq_msg_recv");
+#else
+        PerlLibzmq3_trace( "START zmq_msg_recv" );
+        RETVAL = zmq_msg_recv(msg, socket->socket, flags);
+        PerlLibzmq3_trace(" + zmq_msg_recv returned with rv '%d'", RETVAL);
+        if (RETVAL == -1) {
+            SET_BANG;
+            PerlLibzmq3_trace(" + zmq_msg_recv got bad status");
+        }
+        PerlLibzmq3_trace( "END zmq_msg_recv" );
+#endif /* HAS_ZMQ_RCVMSG */
+    OUTPUT:
+        RETVAL
+
 PerlLibzmq3_Message *
 PerlLibzmq3_zmq_recvmsg(socket, flags = 0)
         PerlLibzmq3_Socket *socket;
@@ -695,6 +856,9 @@ PerlLibzmq3_zmq_recvmsg(socket, flags = 0)
         SV *class_sv = sv_2mortal(newSVpvn( "ZMQ::LibZMQ3::Message", 20 ));
         int rv;
     CODE:
+#ifndef HAS_ZMQ_RECVMSG
+        PerlLibzmq3_function_unavailable("zmq_recvmsg");
+#else
         PerlLibzmq3_trace( "START zmq_recvmsg" );
         Newxz(RETVAL, 1, PerlLibzmq3_Message);
         rv = zmq_msg_init(RETVAL);
@@ -714,6 +878,7 @@ PerlLibzmq3_zmq_recvmsg(socket, flags = 0)
             XSRETURN_EMPTY;
         }
         PerlLibzmq3_trace( "END zmq_recvmsg" );
+#endif /* HAS_ZMQ_RCVMSG */
     OUTPUT:
         RETVAL
 
@@ -748,11 +913,35 @@ PerlLibzmq3_zmq_send(socket, message, size = -1, flags = 0)
         RETVAL
 
 int
+PerlLibzmq3__zmq_msg_send(message, socket, flags = 0)
+        PerlLibzmq3_Message *message;
+        PerlLibzmq3_Socket *socket;
+        int flags;
+    CODE:
+#ifndef HAS_ZMQ_MSG_SEND
+        PerlLibzmq3_function_unavailable("zmq_msg_send");
+#else
+        PerlLibzmq3_trace( "START zmq_msg_send" );
+        RETVAL = zmq_msg_send(message, socket->socket, flags);
+        PerlLibzmq3_trace( " + zmq_msg_send returned with rv '%d'", RETVAL );
+        if ( RETVAL == -1 ) {
+            PerlLibzmq3_trace( " ! zmq_msg_send error %s", zmq_strerror( zmq_errno() ) );
+            SET_BANG;
+        }
+        PerlLibzmq3_trace( "END zmq_msg_send" );
+#endif
+    OUTPUT:
+        RETVAL
+
+int
 PerlLibzmq3__zmq_sendmsg(socket, message, flags = 0)
         PerlLibzmq3_Socket *socket;
         PerlLibzmq3_Message *message;
         int flags;
     CODE:
+#ifndef HAS_ZMQ_SENDMSG
+        PerlLibzmq3_function_unavailable("zmq_sendmsg");
+#else
         PerlLibzmq3_trace( "START zmq_sendmsg" );
         RETVAL = zmq_sendmsg(socket->socket, message, flags);
         PerlLibzmq3_trace( " + zmq_sendmsg returned with rv '%d'", RETVAL );
@@ -761,6 +950,7 @@ PerlLibzmq3__zmq_sendmsg(socket, message, flags = 0)
             SET_BANG;
         }
         PerlLibzmq3_trace( "END zmq_sendmsg" );
+#endif
     OUTPUT:
         RETVAL
 
@@ -817,7 +1007,7 @@ PerlLibzmq3_zmq_setsockopt_string(sock, option, value)
     OUTPUT:
         RETVAL
 
-int
+void
 PerlLibzmq3_zmq_poll( list, timeout = 0 )
         AV *list;
         long timeout;
@@ -942,15 +1132,14 @@ PerlLibzmq3_zmq_device( device, insocket, outsocket )
         PerlLibzmq3_Socket *insocket;
         PerlLibzmq3_Socket *outsocket;
     CODE:
-#ifdef zmq_device
+#ifdef HAS_ZMQ_DEVICE
         RETVAL = zmq_device( device, insocket->socket, outsocket->socket );
+        if (RETVAL != 0) {
+            SET_BANG;
+        }
 #else
         PERL_UNUSED_VAR(device);
-        {
-            int major, minor, patch;
-            zmq_version(&major, &minor, &patch);
-            croak("zmq_device is not available in this version of libzmq (%d.%d.%d)", major, minor, patch );
-        }
+        PerlLibzmq3_function_unavailable("zmq_device");
 #endif
     OUTPUT:
         RETVAL
@@ -961,17 +1150,39 @@ PerlLibzmq3_zmq_proxy(frontend, backend, capture = NULL)
         PerlLibzmq3_Socket *backend;
         PerlLibzmq3_Socket *capture;
     CODE:
-#ifdef zmq_proxy
-        RETVAL = zmq_proxy(frontend, backend, capture);
+#ifdef HAS_ZMQ_PROXY
+        if (capture) {
+          capture = capture->socket;
+        }
+        RETVAL = zmq_proxy(frontend->socket, backend->socket, capture);
+        if (RETVAL != 0) {
+            SET_BANG;
+        }
 #else
         PERL_UNUSED_VAR(frontend);
         PERL_UNUSED_VAR(backend);
         PERL_UNUSED_VAR(capture);
-        {
-            int major, minor, patch;
-            zmq_version(&major, &minor, &patch);
-            croak("zmq_proxy is not available in this version of libzmq (%d.%d.%d)", major, minor, patch );
+        PerlLibzmq3_function_unavailable("zmq_proxy");
+#endif
+    OUTPUT:
+        RETVAL
+
+int
+PerlLibzmq3_zmq_socket_monitor(socket, addr, events)
+        PerlLibzmq3_Socket *socket;
+        char *addr;
+        int events;
+    CODE:
+#ifdef HAS_ZMQ_SOCKET_MONITOR
+        RETVAL = zmq_socket_monitor(socket, addr, events);
+        if (RETVAL != 0) {
+            SET_BANG;
         }
+#else
+        PERL_UNUSED_VAR(socket);
+        PERL_UNUSED_VAR(addr);
+        PERL_UNUSED_VAR(events);
+        PerlLibzmq3_function_unavailable("zmq_socket_monitor");
 #endif
     OUTPUT:
         RETVAL

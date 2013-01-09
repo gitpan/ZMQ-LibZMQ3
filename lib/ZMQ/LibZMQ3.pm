@@ -5,13 +5,20 @@ use XSLoader;
 use ZMQ::Constants ();
 
 BEGIN {
-    our $VERSION = '1.03';
+    our $VERSION = '1.04';
     XSLoader::load(__PACKAGE__, $VERSION);
 }
 
 our @EXPORT = qw(
     zmq_init
     zmq_term
+    zmq_ctx_new
+    zmq_ctx_destroy
+    zmq_ctx_set
+    zmq_ctx_get
+
+    zmq_msg_send
+    zmq_msg_recv
 
     zmq_msg_close
     zmq_msg_data
@@ -23,6 +30,7 @@ our @EXPORT = qw(
     zmq_msg_move
 
     zmq_bind
+    zmq_unbind
     zmq_close
     zmq_connect
     zmq_getsockopt
@@ -32,6 +40,7 @@ our @EXPORT = qw(
     zmq_sendmsg
     zmq_setsockopt
     zmq_socket
+    zmq_socket_monitor
 
     zmq_poll
 
@@ -39,9 +48,16 @@ our @EXPORT = qw(
     zmq_proxy
 );
 
-sub zmq_sendmsg {
-    my $sock = shift;
+if (HAS_ZMQ_CTX_NEW) {
+    *zmq_init = \&zmq_ctx_new;
+}
+if (HAS_ZMQ_CTX_DESTROY) {
+    *zmq_term = \&zmq_ctx_destroy;
+}
+
+sub zmq_msg_send {
     my $msg  = shift;
+    my $sock = shift;
     if (!ref $msg) {
         my $wrap = zmq_msg_init_data($msg);
         if (! $wrap) {
@@ -50,8 +66,29 @@ sub zmq_sendmsg {
         $msg = $wrap;
     }
 
-    @_ = ($sock, $msg, @_);
-    goto \&_zmq_sendmsg;
+    @_ = ($msg, $sock, @_);
+    goto \&_zmq_msg_send;
+}
+
+sub zmq_sendmsg {
+    my $sock = shift;
+    my $msg  = shift;
+    if (HAS_ZMQ_MSG_SEND) {
+        # Delegate to zmq_msg_send
+        @_ = ($msg, $sock, @_);
+        goto \&zmq_msg_send;
+    } else {
+        if (!ref $msg) {
+            my $wrap = zmq_msg_init_data($msg);
+            if (! $wrap) {
+                return ();
+            }
+            $msg = $wrap;
+        }
+
+        @_ = ($sock, $msg, @_);
+        goto \&_zmq_sendmsg;
+    }
 }
 
 sub zmq_getsockopt {
@@ -194,6 +231,12 @@ The received message is an instance of ZMQ::LibZMQ3::Message object, and you can
 
     my $data = zmq_msg_data( $msg );
 
+=head1 WHEN IN DOUBT
+
+0MQ is a relatively large framework, and to use it you need to be comfortable
+with a lot of concepts. If you think this module is not behaving like you
+expect it to, I<please read the documents for the C API>
+
 =head1 ASYNCHRONOUS I/O WITH ZEROMQ
 
 By default 0MQ comes with its own zmq_poll() mechanism that can handle
@@ -215,8 +258,8 @@ hashrefs:
 
 Unfortunately this custom polling scheme doesn't play too well with AnyEvent.
 
-As of zeromq2-2.1.0, you can use getsockopt to retrieve the underlying file
-descriptor, so use that to integrate ZMQ::LibZMQ3 and AnyEvent:
+Fortunately you can use getsockopt to retrieve the underlying file descriptor,
+so use that to integrate ZMQ::LibZMQ3 and AnyEvent:
 
     my $socket = zmq_socket( $ctxt, ZMQ_REP );
     my $fh = zmq_getsockopt( $socket, ZMQ_FD );
@@ -269,12 +312,52 @@ Context objects can be reused across threads.
 
 Returns undef upon error, and sets $!.
 
+Note: Deprecated in libzmq, but the Perl binding will silently fallback to
+using C<zmq_ctx_new()>, if available.
+
+=head2 $cxt = zmq_ctx_new( $threads );
+
+Creates a new context object. C<$threads> argument is optional.
+Context objects can be reused across threads.
+
+Returns undef upon error, and sets $!.
+
+Note: may not be available depending on your libzmq version.
+
+=head2 $rv = zmq_ctx_get( $cxt, $option )
+
+Gets the value for the given option.
+
+Returns -1 status upon failure, and sets $!
+
+Note: may not be available depending on your libzmq version.
+
+=head2 $rv = zmq_ctx_set( $cxt, $option, $value )
+
+Sets the value for the given option.
+
+Returns a non-zero status upon failure, and sets $!.
+
+Note: may not be available depending on your libzmq version.
+
 =head2 $rv = zmq_term( $cxt )
 
 Terminates the context. Be careful, as it might hang if you have pending socket
 operations. 
 
 Returns a non-zero status upon failure, and sets $!.
+
+Note: Deprecated in libzmq, but the Perl binding will silently fallback to
+using C<zmq_ctx_destroy()>, if available.
+
+=head2 $rv = zmq_ctx_destroy( $cxt )
+
+Terminates the context. Be careful, as it might hang if you have pending socket
+operations. 
+
+Returns a non-zero status upon failure, and sets $!.
+
+Note: may not be available depending on your libzmq version.
 
 =head2 $socket = zmq_socket( $cxt, $socket_type )
 
@@ -287,6 +370,14 @@ Returns undef upon error, and sets $!.
 Binds the socket to listen to specified C<$address>.
 
 Returns a non-zero status upon failure, and sets $!
+
+=head2 $rv = zmq_unbind( $sock, $address )
+
+Stops listening on this endpoint.
+
+Returns a non-zero status upon failure, and sets $!
+
+Note: may not be available depending on your libzmq version.
 
 =head2 $rv = zmq_connect( $sock, $address )
 
@@ -359,6 +450,20 @@ Returns the number of bytes sent on success (which should be exact C<$size>)
 
 Returns -1 upon failure, and sets $!.
 
+Note: Deprecated in favor of C<zmq_msg_send()>, and may not be available depending on your libzmq version.
+
+=head2 $rv = zmq_msg_send($message, $sock, $flags)
+
+Queues C<$message> to be sent via C<$sock>. Argument C<$flags> may be omitted.
+
+If C<$message> is a non-ref, creates a new ZMQ::LibZMQ3::Message object via C<zmq_msg_init_data()>, and uses that to pass to the underlying C layer..
+
+Returns the number of bytes sent on success (which should be exact C<$size>)
+
+Returns -1 upon failure, and sets $!.
+
+Note: may not be available depending on your libzmq version.
+
 =head2 $rv = zmq_recv($sock, $buffer, $len, $flags)
 
 Receives a new message from C<$sock>, and store the message payload in C<$buffer>, up to C<$len> bytes. Argument C<$flags> may be omitted.
@@ -373,6 +478,29 @@ Receives a new message from C<$sock>. Argument C<$flags> may be omitted.
 Returns the message object.
 
 Returns undef upon failure, and sets $!.
+
+Note: Although this function is marked as deprecated in libzmq3, it will
+stay in the Perl binding as the official short-circuit version of
+C<zmq_msg_recv()>, so that you don't have to create a message object
+every time.
+
+=head2 $rv = zmq_msg_recv($msg, $sock, $flags)
+
+Receives a new message from C<$sock>, and writes the new content to C<$msg>.
+Argument C<$flags> may be omitted. Returns 0 upon succes, -1 on failure and
+sets $!.
+
+Other than the fact that libzmq has deprecated C<zmq_recvmsg()>, this
+construct is useful if you don't want to allocate a message struct for
+every recv call:
+
+    my $msg = zmq_msg_init();
+    while (1) {
+        my $rv = zmq_msg_recv($msg, $sock, $flags);
+        ...
+    }
+
+Note: may not be available depending on your libzmq version
 
 =head2 $msg = zmq_msg_init()
 
@@ -472,7 +600,7 @@ returns a 3-element list of the version numbers:
 
 Creates a new "device". See C<zmq_device> for details. zmq_device() will only return if/when the current context is closed. Therefore, the return value is always -1, and errno is always ETERM
 
-This function does not work on some versions, as certain early versions of libzmq3.x do not implement it.
+Note: may not be available depending on your libzmq version.
 
 =head2 zmq_proxy($frontend_sock, $backend_sock, $capture_sock)
 
@@ -481,7 +609,11 @@ WARNING: EXPERIMENTAL. Use at your own risk.
 Start a proxy in the current thread, which connects the frontend socket to a
 backend socket. The capture sock is optional, and is by default undef.
 
-This function does not work on some versions, as certain early versions of libzmq3.x do not implement it.
+Note: may not be available depending on your libzmq version.
+
+=head2 $rv = zmq_socket_monitor($socket, $addr, events)
+
+Note: may not be available depending on your libzmq version.
 
 =head1 FUNCTIONS PROVIDED BY ZMQ::LIBZMQ3
 
@@ -529,6 +661,11 @@ This is an early release. Proceed with caution, please report
 This module has been tested againt B<zeromq 3.2.2>. Semantics of this
 module rely heavily on the underlying zeromq version. Make sure
 you know which version of zeromq you're working with.
+
+As of 1.04 some new constants have been added, but they are not really
+meant to be used by consumers of this module. If you find yourself
+looking at these, please let us know why you need to use it -- we'll see
+if we can find a workaround, or make these constants public.
 
 =head1 SEE ALSO
 
