@@ -1,0 +1,22 @@
+diff --git a/ZMQ-LibZMQ3/tools/zmqcheck/Makefile.PL b/ZMQ-LibZMQ3/tools/zmqcheck/Makefile.PL
+index ff12e6b..885113d 100644
+--- a/ZMQ-LibZMQ3/tools/zmqcheck/Makefile.PL
++++ b/ZMQ-LibZMQ3/tools/zmqcheck/Makefile.PL
+@@ -20,8 +20,6 @@ my %functions = (
+ foreach my $func (keys %functions) {
+     open my $fh, '>', "$func.c" or die "Failed to open file $func.c for writing: $!";
+     printf $fh <<'EOM', $functions{$func};
+-#include "EXTERN.h"
+-#include "perl.h"
+ #include <zmq.h>
+ 
+ int main(int argc, char **argv)
+@@ -35,7 +33,7 @@ EOM
+     
+     $postamble .= sprintf <<'EOM', ($func) x 3;
+ %s:
+-	LD_RUN_PATH="$(LD_RUN_PATH)" $(CC) $(PASTHRU_INC) $(INC) $(CCFLAGS) $(OPTIMIZE) $(CCCDLFLAGS) "-I$(PERL_INC)" $(PASTHRU_DEFINE) $(DEFINE) $(EXTRALIBS) %s.c -o %s >> zmqcheck.out 2>&1
++	LD_RUN_PATH="$(LD_RUN_PATH)" $(CC) $(PASTHRU_INC) $(INC) $(CCFLAGS) $(EXTRALIBS) %s.c -o %s >> zmqcheck.out 2>&1
+ 
+ EOM
+ }
