@@ -33,6 +33,8 @@ requires:
   XSLoader: 0.02
   ZMQ::Constants: 0
 resources:
+  bugtracker: https://github.com/lestrrat/p5-ZMQ/issues
+  homepage: https://github.com/lestrrat/p5-ZMQ
   license: http://dev.perl.org/licenses/
-  repository: https://github.com/lestrrat/p5-ZMQ
-version: 1.06
+  repository: git://github.com/lestrrat/p5-ZMQ.git
+version: 1.07

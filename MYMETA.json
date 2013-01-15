@@ -51,12 +51,17 @@
    },
    "release_status" : "stable",
    "resources" : {
+      "bugtracker" : {
+         "web" : "https://github.com/lestrrat/p5-ZMQ/issues"
+      },
+      "homepage" : "https://github.com/lestrrat/p5-ZMQ",
       "license" : [
          "http://dev.perl.org/licenses/"
       ],
       "repository" : {
-         "url" : "https://github.com/lestrrat/p5-ZMQ"
+         "type" : "git",
+         "url" : "git://github.com/lestrrat/p5-ZMQ.git"
       }
    },
-   "version" : "1.06"
+   "version" : "1.07"
 }

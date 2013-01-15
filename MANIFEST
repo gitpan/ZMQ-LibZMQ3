@@ -33,13 +33,9 @@ t/cover.sh
 t/rt64944.t
 t/rt74653.t
 tools/check_mi_mods.pl
-tools/detect_functions.pl
 tools/detect_zmq.pl
 tools/genfiles.pl
-tools/zmqcheck/diff.patch
-tools/zmqcheck/inc/Module/Install.pm
 tools/zmqcheck/Makefile.PL
-tools/zmqcheck/Makefile.PL.orig
 xs/perl_libzmq3.h
 xs/perl_libzmq3.xs
 xt/999_leak.t
