@@ -37,4 +37,4 @@ resources:
   homepage: https://github.com/lestrrat/p5-ZMQ
   license: http://dev.perl.org/licenses/
   repository: git://github.com/lestrrat/p5-ZMQ.git
-version: 1.10
+version: 1.11
